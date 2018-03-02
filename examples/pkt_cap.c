@@ -1,56 +1,59 @@
 #include "nf_pktgen.h"
-  
-int
-main(int argc, char *argv[]) {
-  int i;
-  uint32_t start;
-  int32_t pkt_gap = 1000000000;
 
-  printf("Initiating packet generator\n");
+#include <poll.h>
+#include <strings.h>
 
-  //enable padding
-  nf_init(1, 0, 0); 
+int main(int argc, char *argv[])
+{
+    int i, fd, ret;
+    uint32_t start;
+    int32_t pkt_gap = 1000000000;
+    /*fd_set fds;*/
+    struct pollfd poll_set[1];
+    char* filename = "../pkt.pcap";
 
-/*   // Set the number of iterations for the queues with pcap files */
-/*   nf_gen_rate_limiter_disable(1, 0); */
-/*   nf_gen_rate_limiter_disable(2, 0); */
-/*   nf_gen_rate_limiter_disable(3, 0); */
+    int count = 0;
+    const uint8_t *data;
+    struct pcap_pkthdr h;
 
-/*   nf_gen_rate_limiter_disable(0, 0);   */
-  //nf_gen_rate_limiter_set(2, 0, 2.0);
+    if (argc == 2) {
+        filename = argv[1];
+    }
 
-  nf_gen_set_number_iterations (1, 1, 0);
+    //enable padding
+    nf_init(1, 0, 0);
+    nf_gen_set_number_iterations (1, 1, 0);
+    struct nf_cap_t *cap1 = nf_cap_enable("nf1", 1024);
+    if(cap1 == NULL) {
+        perror("nf_cap_enable");
+    }
 
+    //load the pcap capture file
+    nf_gen_load_pcap("../pkt.pcap", 0,  10000);
+    nf_cap_add_rule(1, 0, 0, 0, 0, 0, 0, 0, 0);
+    nf_start(0);
+    printf("trying to get data\n");
 
-  struct nf_cap_t * cap2 = nf_cap_enable("nf2c2", 2000);
-  if(cap2 == NULL) {
-    perror("nf_cap_enable");
-  }
-  struct nf_cap_t * cap3 = nf_cap_enable("nf2c3", 2000);
-  if(cap3 == NULL) {
-    perror("nf_cap_enable");
-  }
+    fd = nf_cap_fileno(cap1);
+    while( (count < 100)){
 
-  //load the pcap capture file
-  nf_gen_load_pcap("/root/netfpga/projects/packet_generator/sw/http.pcap", 0, 0);
+        bzero(poll_set, sizeof(struct pollfd));
+        poll_set[0].fd = fd;
+        poll_set[0].events |= POLLIN;
+        ret = poll(poll_set, 1, 1);
 
-  nf_start(0);
-  int count = 0;
-  uint8_t *data;
-  struct pcap_pkthdr h;
-  while( ((data = nf_cap_next(cap3, &h)) != NULL)  && (count < 40)){
-    printf("packet %d,%u.%06u \n", ++count, h.ts.tv_sec, h.ts.tv_usec);
-    
-  }
+        if(!ret) {
+            continue;
+        }
+        data = nf_cap_next(cap1, &h);
+        if (data)
+            printf("packet %d,%u.%06u \n", ++count, (uint32_t)h.ts.tv_sec, (uint32_t)h.ts.tv_usec);
+        else
+            fprintf(stderr, "[WARNING] packet %d not captured\n", ++count);
 
-  printf("nothing captured \n");
-  sleep(10);
-  
-  // Wait until the correct number of packets is sent
-  nf_finish();
-
-  return 0;
-
+    }
+    // Wait until the correct number of packets is sent
+    nf_finish();
+    usleep(10);
+    return 0;
 }
-
-

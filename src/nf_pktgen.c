@@ -1,5 +1,4 @@
 #include "nf_pktgen.h"
-
 #include <stdio.h>
 #define __USE_ISOC99 1
 #include <stdlib.h>
@@ -15,8 +14,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netpacket/packet.h>
-#include <net/if.h> 
-#include <sys/ioctl.h> 
+#include <net/if.h>
+#include <sys/ioctl.h>
 #include <net/ethernet.h>
 
 #include "constants.h"
@@ -37,38 +36,38 @@ struct nf_cap_t {
 };
 
 struct str_nf_pktgen {
-  uint32_t *queue_words;
-  uint32_t *queue_bytes;
-  uint32_t *queue_pkts;
-  uint32_t *num_pkts;
-  int *queue_base_addr;
+  uint32_t queue_words[NUM_PORTS];
+  uint32_t queue_bytes[NUM_PORTS];
+  uint32_t queue_pkts[NUM_PORTS];
+  uint32_t num_pkts[NUM_PORTS];
+  int queue_base_addr[NUM_PORTS];
 
-  uint32_t *sec_current;
-  uint32_t *usec_current;
+  uint32_t sec_current[NUM_PORTS];
+  uint32_t usec_current[NUM_PORTS];
 
-  char **queue_data;
-  uint32_t *queue_data_len;
+  char *queue_data[NUM_PORTS];
+  uint32_t queue_data_len[NUM_PORTS];
 
   //rate limiter variables
-  float *rate;
-  uint8_t *rate_enable;
-  uint32_t *clks_between_tokens; // = 1;
-  float * number_tokens;
+  float rate[NUM_PORTS];
+  uint8_t rate_enable[NUM_PORTS];
+  uint32_t clks_between_tokens[NUM_PORTS]; // = 1;
+  float number_tokens[NUM_PORTS];
 
   /*   float *clks_between_tokens; */
   /*   float *number_tokens; */
 
-  uint32_t *last_len;
-  uint32_t *last_sec;
-  uint32_t *last_nsec;
+  uint32_t last_len[NUM_PORTS];
+  uint32_t last_sec[NUM_PORTS];
+  uint32_t last_nsec[NUM_PORTS];
 
-  uint32_t *final_pkt_delay;
-  uint32_t *iterations;
-  float *delay;
+  uint32_t final_pkt_delay[NUM_PORTS];
+  uint32_t iterations[NUM_PORTS];
+  float delay[NUM_PORTS];
 
-  struct nf_cap_t *obj_cap;
+  struct nf_cap_t obj_cap[NUM_PORTS];
 
-  float *usec_per_byte;
+  float usec_per_byte[NUM_PORTS];
 
   int pad;
   int resolve_ns;
@@ -86,10 +85,11 @@ struct str_nf_pktgen {
   struct nf2device nf2;
 };
 
+
 struct str_nf_pktgen nf_pktgen;
 
 /*
- * Util internal functions 
+ * Util internal functions
  */
 int get_queue_size(int port);
 int packet_generator_enable(unsigned status);
@@ -115,7 +115,6 @@ ntohll(uint64_t val) {
   return ret;
 }
 
-
 /*
  * TODO:
  * - add code to verify that the right bitfile is downloaded.
@@ -135,88 +134,37 @@ nf_init(int pad, int nodrop,int resolve_ns) {
   lldiv_t res;
 
   printf("Initializing pkt gen library\n");
-  free(nf_pktgen.queue_words);
-  nf_pktgen.queue_words = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.queue_words, NUM_PORTS*sizeof(uint32_t));
-  free(nf_pktgen.queue_bytes);
-  nf_pktgen.queue_bytes = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.queue_bytes, NUM_PORTS*sizeof(uint32_t));
-  free(nf_pktgen.queue_pkts);
-  nf_pktgen.queue_pkts = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.queue_pkts, NUM_PORTS*sizeof(uint32_t));
-  free(nf_pktgen.queue_base_addr);
-  nf_pktgen.queue_base_addr = (int *)xmalloc(NUM_PORTS*sizeof(int));
   bzero(nf_pktgen.queue_base_addr, NUM_PORTS*sizeof(int));
-  free(nf_pktgen.num_pkts);
-  nf_pktgen.num_pkts = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.num_pkts, NUM_PORTS*sizeof(uint32_t));
-
-  free(nf_pktgen.sec_current);
-  nf_pktgen.sec_current = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
-  bzero(nf_pktgen.sec_current, NUM_PORTS*sizeof(uint32_t));
-  free(nf_pktgen.usec_current);
-  nf_pktgen.usec_current = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
+bzero(nf_pktgen.sec_current, NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.usec_current, NUM_PORTS*sizeof(uint32_t));
-
-  free(nf_pktgen.queue_data);
-  nf_pktgen.queue_data = (char **)xmalloc(NUM_PORTS*sizeof(char *));
   bzero(nf_pktgen.queue_data, NUM_PORTS*sizeof(char *));
-  free(nf_pktgen.queue_data_len);
-  nf_pktgen.queue_data_len = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.queue_data_len, NUM_PORTS*sizeof(uint32_t));
-
-  free(nf_pktgen.rate);
-  nf_pktgen.rate = (float *)xmalloc(NUM_PORTS*sizeof(float));
   bzero(nf_pktgen.rate, NUM_PORTS*sizeof(float));
-
-  free(nf_pktgen.rate_enable);
-  nf_pktgen.rate_enable = (uint8_t *)xmalloc(NUM_PORTS*sizeof(uint8_t));
   bzero(nf_pktgen.rate_enable, NUM_PORTS*sizeof(uint8_t));
 
-  free(nf_pktgen.clks_between_tokens);
-  nf_pktgen.clks_between_tokens = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
-  bzero(nf_pktgen.clks_between_tokens, NUM_PORTS*sizeof(uint32_t));
   for (i = 0; i < NUM_PORTS; i++) nf_pktgen.clks_between_tokens[i] = 1;
-  free(nf_pktgen.number_tokens);  
-  nf_pktgen.number_tokens = (float *)xmalloc(NUM_PORTS*sizeof(float));
-  bzero(nf_pktgen.number_tokens, NUM_PORTS*sizeof(float));
   for (i = 0; i < NUM_PORTS; i++) nf_pktgen.number_tokens[i] = 1;
 
-  free(nf_pktgen.last_len);
-  nf_pktgen.last_len = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.last_len, NUM_PORTS*sizeof(uint32_t));
-  free(nf_pktgen.last_nsec);
-  nf_pktgen.last_nsec = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.last_nsec, NUM_PORTS*sizeof(uint32_t));
-  free(nf_pktgen.last_sec);
-  nf_pktgen.last_sec = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.last_sec, NUM_PORTS*sizeof(uint32_t));
 
-  free(nf_pktgen.usec_per_byte);
-  nf_pktgen.usec_per_byte = (float *)xmalloc(NUM_PORTS*sizeof(float));
-  for (i = 0; i< NUM_PORTS; i++) {
-    nf_pktgen.usec_per_byte[i] = USEC_PER_BYTE;
-  }
+  for (i = 0; i< NUM_PORTS; i++) nf_pktgen.usec_per_byte[i] = USEC_PER_BYTE;
 
-  free(nf_pktgen.final_pkt_delay);
-  nf_pktgen.final_pkt_delay = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
   bzero(nf_pktgen.final_pkt_delay, NUM_PORTS*sizeof(uint32_t));
-  free(nf_pktgen.iterations);
-  nf_pktgen.iterations = (uint32_t *)xmalloc(NUM_PORTS*sizeof(uint32_t));
-  for (i = 0 ; i < NUM_PORTS ; i++)
-    nf_pktgen.iterations[i] = 0;
-  free(nf_pktgen.delay);
-  nf_pktgen.delay = (float *)xmalloc(NUM_PORTS*sizeof(float));
+  for (i = 0 ; i < NUM_PORTS ; i++) nf_pktgen.iterations[i] = 0;
   bzero(nf_pktgen.delay, NUM_PORTS*sizeof(float));
 
-  free(nf_pktgen.obj_cap);
-  nf_pktgen.obj_cap = (struct nf_cap_t *)xmalloc(NUM_PORTS*sizeof(struct nf_cap_t));
   for (i = 0; i< NUM_PORTS; i++) {
     nf_pktgen.obj_cap[i].cap_fd = -1;
     nf_pktgen.obj_cap[i].intf_ix = i;
-    nf_pktgen.obj_cap[i].name = (char *)xmalloc(sizeof("nf2cX"));
+    nf_pktgen.obj_cap[i].name = (char *)malloc(sizeof("nf2cX"));
     sprintf(nf_pktgen.obj_cap[i].name, "nf2c%1d", i);
-    nf_pktgen.obj_cap[i].cap_hdr = (struct pcap_pkthdr *)xmalloc(sizeof(struct pcap_pkthdr));
+    nf_pktgen.obj_cap[i].cap_hdr = (struct pcap_pkthdr *)malloc(sizeof(struct pcap_pkthdr));
     bzero(nf_pktgen.obj_cap[i].cap_hdr,sizeof(struct pcap_pkthdr));
     nf_pktgen.obj_cap[i].packet_cache = NULL;
     nf_pktgen.obj_cap[i].caplen = 0;
@@ -232,10 +180,10 @@ nf_init(int pad, int nodrop,int resolve_ns) {
   nf_pktgen.queue_addr_offset = OQ_QUEUE_GROUP_INST_OFFSET;
   nf_pktgen.gen_start = 0;
 
-  //open the write device and 
+  //open the write device and
   nf_pktgen.nf2.device_name = DEFAULT_IFACE;
-  if (check_iface(&nf_pktgen.nf2)) 
-    return -1;
+  if (check_iface(&nf_pktgen.nf2))
+    exit(1);
 
   if (openDescriptor(&nf_pktgen.nf2))
     return -1;
@@ -254,7 +202,7 @@ nf_init(int pad, int nodrop,int resolve_ns) {
   readReg(&nf_pktgen.nf2, COUNTER_BIT_63_32_REG, &counter_l);
   timer = ((uint64_t)counter_h<<32) + (uint64_t)(0xFFFFFFFF&counter_l);
   timer = CORRECTION*timer;
-  printf("counter: %llx %lx %lx\n", timer, counter_h, counter_l);
+  printf("counter: %lx %x %x\n", timer, counter_h, counter_l);
 
   if(nf_pktgen.resolve_ns) {
     res = lldiv(timer, powl(10,6));
@@ -266,7 +214,7 @@ nf_init(int pad, int nodrop,int resolve_ns) {
   if(nf_pktgen.start.tv_usec < (uint32_t)(res.rem/1000)) {
     nf_pktgen.start.tv_sec--;
     nf_pktgen.start.tv_usec += (1000000 - (uint32_t)(res.rem/1000));
-  } else 
+  } else
     nf_pktgen.start.tv_usec -= (uint32_t)(res.rem/1000);
 
 }
@@ -276,7 +224,7 @@ nf_init(int pad, int nodrop,int resolve_ns) {
 // Set the control register vaule to enable each queue
 // Arguments: status                    the bitmap for the enabled queues
 ////////////////////////////////////////////////////////////
-int 
+int
 packet_generator_enable(unsigned status) {
   //Start the queues that are passed into the function
   return writeReg(&nf_pktgen.nf2, PKT_GEN_CTRL_ENABLE_REG, status);
@@ -301,7 +249,7 @@ get_queue_size(int port) {
 // Arguments: queue              Queue to load the Pcap into
 //
 ///////////////////////////////////////////////////////////
-int 
+int
 load_queues(int queue) {
   uint32_t sram_addr = SRAM_BASE_ADDR + nf_pktgen.queue_base_addr[queue] * 16;
   int i;
@@ -310,20 +258,20 @@ load_queues(int queue) {
   printf("queue %d len:%d\n", queue, nf_pktgen.queue_data_len[queue]);
 #endif
   for (i=0; i<nf_pktgen.queue_data_len[queue];i+=9) {
-    writeReg(&nf_pktgen.nf2, (sram_addr+0x4), 
+    writeReg(&nf_pktgen.nf2, (sram_addr+0x4),
         *((uint8_t *)(nf_pktgen.queue_data[queue] + i)));
-    writeReg(&nf_pktgen.nf2, (sram_addr+0x8), 
+    writeReg(&nf_pktgen.nf2, (sram_addr+0x8),
         htonl(*((uint32_t *)(nf_pktgen.queue_data[queue] + i + 1))));
-    writeReg(&nf_pktgen.nf2, (sram_addr+0xc), 
+    writeReg(&nf_pktgen.nf2, (sram_addr+0xc),
         htonl(*(uint32_t *)(nf_pktgen.queue_data[queue] + i + 5)));
 
 #if DEBUG
-    printf("%x %08x %08x %08lx\n",  
-        (sram_addr+0x4), *((uint8_t *)(nf_pktgen.queue_data[queue] + i)),  
-        htonl(*((uint32_t *)(nf_pktgen.queue_data[queue] + i + 1))),  
-        htonl(*((uint32_t *)(nf_pktgen.queue_data[queue] + i + 5)))); 
+    printf("%x %08x %08x %08lx\n",
+        (sram_addr+0x4), *((uint8_t *)(nf_pktgen.queue_data[queue] + i)),
+        htonl(*((uint32_t *)(nf_pktgen.queue_data[queue] + i + 1))),
+        htonl(*((uint32_t *)(nf_pktgen.queue_data[queue] + i + 5))));
 
-#endif 
+#endif
     sram_addr += 16;
   }
   return 0;
@@ -353,6 +301,14 @@ nf_gen_reset_queue(int port) {
   //bzero(&nf_pktgen.obj_cap[port].start, sizeof(struct timeval));
 }
 
+#define PCAP_ENGINE_BASE_ADDR  0x76000000
+#define PCAP_ENGINE_RST        0x0
+#define PCAP_ENGINE_REPLAY     0x4
+#define PCAP_ENGINE_REPLAY_CNT 0x14
+#define PCAP_ENGINE_MEM_LOW    0x24
+#define PCAP_ENGINE_MEM_HIGH   0x28
+#define PCAP_ENGINE_ENABLE     0x44
+
 ////////////////////////////////////////////////////////////
 // Name: load_packet
 // Append a packet on the local data cache of the data send out of a specific port
@@ -361,7 +317,8 @@ nf_gen_reset_queue(int port) {
 //            delay            Delay from the previous packet in microseconds
 ////////////////////////////////////////////////////////////
 int
-nf_gen_load_packet(struct pcap_pkthdr *h, const unsigned char *data, int port, int32_t delay) {
+nf_gen_load_packet(struct pcap_pkthdr *h, const unsigned char *data, int port,
+    uint64_t delay) {
   uint32_t src_port = 0, dst_port = 0x100;
   uint32_t sec = h->ts.tv_sec, usec = h->ts.tv_usec;
   uint32_t len = h->len, caplen = h->caplen, word_len = ceil(((float)len)/8), packet_words;
@@ -400,8 +357,8 @@ nf_gen_load_packet(struct pcap_pkthdr *h, const unsigned char *data, int port, i
   if ( (packet_words + nf_pktgen.total_words) > MAX_TX_QUEUE_SIZE) {
     printf("Warning: unable to load all packets from pcap file. SRAM queues are full.\n");
     printf("Total output queue size: %d words\n",MAX_TX_QUEUE_SIZE);
-    printf("Current queue occupancy: %lu words\n", nf_pktgen.total_words);
-    printf("Packet size:%lu words\n", packet_words);
+    printf("Current queue occupancy: %u words\n", nf_pktgen.total_words);
+    printf("Packet size:%u words\n", packet_words);
     return 0;
   } else {
     nf_pktgen.total_words += packet_words;
@@ -483,7 +440,7 @@ nf_gen_load_packet(struct pcap_pkthdr *h, const unsigned char *data, int port, i
     memcpy(nf_pktgen.queue_data[port] + pointer + 5,  &tmp_data, 4);
 #if DEBUG
     printf("0x%02x 0x%02x%02lx%02lx%02lx 0x%02x%02lx%02lx%02lx\n",
-        (unsigned char) DELAY_CTRL_VAL, 
+        (unsigned char) DELAY_CTRL_VAL,
         (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 1),
         (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 2),
         (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 3),
@@ -508,21 +465,21 @@ nf_gen_load_packet(struct pcap_pkthdr *h, const unsigned char *data, int port, i
 
     pointer = nf_pktgen.queue_data_len[port];
     nf_pktgen.queue_data_len[port] += 9;
-    nf_pktgen.queue_data[port] = realloc(nf_pktgen.queue_data[port], 
+    nf_pktgen.queue_data[port] = realloc(nf_pktgen.queue_data[port],
         nf_pktgen.queue_data_len[port]);
     nf_pktgen.queue_data[port][pointer] = (uint8_t)ctrl;
     //bzero(nf_pktgen.queue_data[port] + pointer + 1, 8);
     memcpy(nf_pktgen.queue_data[port] + pointer + 1, data + i, 8);
 #if DEBUG
-    printf("0x%02x 0x%02x%02lx%02lx%02lx 0x%02x%02lx%02lx%02lx\n",  
-        ctrl, (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 1), 
+    printf("0x%02x 0x%02x%02lx%02lx%02lx 0x%02x%02lx%02lx%02lx\n",
+        ctrl, (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 1),
         (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 2),
         (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 3),
         (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 4),
         (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 5),
         (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 6),
         (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 7),
-        (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 8)); 
+        (unsigned char)*(nf_pktgen.queue_data[port] + pointer + 8));
 #endif
   }
 
@@ -561,7 +518,6 @@ nf_gen_load_packet(struct pcap_pkthdr *h, const unsigned char *data, int port, i
     nf_pktgen.final_pkt_delay[port] *= NSEC_PER_BYTE;
   }
 
-
   nf_pktgen.num_pkts[port]++;
   return 0;
 }
@@ -574,27 +530,27 @@ nf_gen_load_packet(struct pcap_pkthdr *h, const unsigned char *data, int port, i
 //            delay            Delay from the previous packet
 ////////////////////////////////////////////////////////////
 int
-nf_gen_load_pcap(const char *filename, int port, int32_t delay) {
-  pcap_t *pcap; 
+nf_gen_load_pcap(const char *filename, int port, uint64_t delay) {
+  pcap_t *pcap;
   const unsigned char *data;
   struct pcap_pkthdr h;
   char errbuf[PCAP_ERRBUF_SIZE];
 
   if((pcap = pcap_open_offline(filename, errbuf)) == NULL) {
     fprintf(stderr, "pcap_open_offline:%s\n", errbuf);
-    reutnr -1;
+    return -1;
   }
   printf("laod file %s with delay %ld\n", filename, delay);
 
   while((data = pcap_next(pcap, &h)) != NULL) {
     if (h.len != h.caplen) {
       fprintf(stderr, "Warning: The capture length was less than the packet length for one");
-      fprintf(stderr, " or more packets in '$pcap_filename'. Packets will be0001fffc padded with zeros.\n");
+      fprintf(stderr, " or more packets in '$pcap_filename'. Packets will be padded with zeros.\n");
     }
 
 
 #if DEBUG
-    printf("load packet on queue %d, with delay %ld\n", 
+    printf("load packet on queue %d, with delay %ld\n",
         port, delay);
 #endif
 
@@ -615,7 +571,7 @@ nf_gen_load_pcap(const char *filename, int port, int32_t delay) {
 //       bit 0 -- enable queueIO_QUEUE_STAGE_NUM
 //       bit 1 -- initialize queue (set to 1)
 /////////////////////////////////////////////////////////////////
-int 
+int
 nf_gen_set_number_iterations(int number_iterations, int iterations_enable, int queue) {
 
   if((queue >=0) && (queue < NUM_PORTS)) {
@@ -638,7 +594,7 @@ int
 nf_gen_rate_limiter_enable(int port, int cpu) {
   uint32_t rate_limit_offset = RATE_LIMIT_1_CTRL_REG - RATE_LIMIT_0_CTRL_REG;
   int queue = 2*port + cpu;
-  if(!cpu) 
+  if(!cpu)
     nf_pktgen.rate_enable[port] = 1;
 
   //return writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_CTRL_REG+(queue*rate_limit_offset), 0x1);
@@ -713,9 +669,9 @@ nf_gen_rate_limiter_set(int port, int cpu, float rate) {
     nf_pktgen.clks_between_tokens[port] = clks_between_tokens;
     nf_pktgen.number_tokens[port] = number_tokens;
   } else {
-    writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_TOKEN_INTERVAL_REG + (queue * rate_limit_offset), 
+    writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_TOKEN_INTERVAL_REG + (queue * rate_limit_offset),
         clks_between_tokens);
-    writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_TOKEN_INC_REG + (queue * rate_limit_offset), 
+    writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_TOKEN_INC_REG + (queue * rate_limit_offset),
         number_tokens);
 
   }
@@ -732,7 +688,7 @@ int
 nf_gen_rate_limiter_disable(int port, int cpu) {
   int queue = 2*port + cpu;
   uint32_t rate_limit_offset = RATE_LIMIT_1_CTRL_REG - RATE_LIMIT_0_CTRL_REG;
-  if(!cpu) 
+  if(!cpu)
     nf_pktgen.rate_enable[port] = 0;
   printf("rate limiter port %d%08x\n", port, RATE_LIMIT_0_CTRL_REG+(queue*rate_limit_offset));
   return 0;
@@ -745,7 +701,7 @@ nf_gen_rate_limiter_disable(int port, int cpu) {
 // Name: reset_delay
 // Reset the delay modules
 //////////////////////////////////////////////////
-void 
+void
 reset_delay() {
   writeReg(&nf_pktgen.nf2, DELAY_RESET_REG, 1);
 }
@@ -758,14 +714,14 @@ reset_delay() {
 char queue_name_buf[100];
 const char *
   queue_name(int queue ) {
-    if (queue < 0 || queue >= 12) 
+    if (queue < 0 || queue >= 12)
       return "Invalid queue";
     else if (queue < 8) {
-      if (queue % 2 == 0) 
+      if (queue % 2 == 0)
         snprintf(queue_name_buf, 100, "MAC Queue %d", queue/2);
-      else 
+      else
         snprintf(queue_name_buf, 100, "CPU Queue %d", (queue-1)/2);
-    } else 
+    } else
       snprintf(queue_name_buf, 100, "MAC Queue %d", queue - 8);
     return queue_name_buf;
   }
@@ -789,10 +745,10 @@ queue_reorganize() {
   //    (first queue given any remaining memory)
   uint32_t queue_free = MEM_SIZE - NUM_PORTS * XMIT_QUEUE_SIZE;
   int i;
-  for (i = 0; i < NUM_PORTS; i++) 
+  for (i = 0; i < NUM_PORTS; i++)
     queue_free -= get_queue_size(i);
 
-  for(i=0; i< NUM_PORTS; i++) 
+  for(i=0; i< NUM_PORTS; i++)
     rx_queue_size[i] = floor( ((float)queue_free) / NUM_PORTS);
 
   rx_queue_size[0] += queue_free - NUM_PORTS * rx_queue_size[0]; //what's left, added up to the first queue
@@ -819,13 +775,13 @@ queue_reorganize() {
     printf("%08lx %08lx\n", (OQ_QUEUE_0_ADDR_LO_REG + (i * 2)*queue_addr_offset), curr_addr);
     printf("%08lx %08lx\n", (OQ_QUEUE_0_ADDR_HI_REG + (i*2)*queue_addr_offset), curr_addr + XMIT_QUEUE_SIZE - 1);
     printf("%08lx %08lx\n", (OQ_QUEUE_0_CTRL_REG + (i*2)*queue_addr_offset), 0x02);
-#endif	
+#endif
     writeReg(&nf_pktgen.nf2,
-        (OQ_QUEUE_0_ADDR_LO_REG + (i * 2)*queue_addr_offset), curr_addr);	 
-    writeReg(&nf_pktgen.nf2, 
-        (OQ_QUEUE_0_ADDR_HI_REG + (i*2)*queue_addr_offset), 
+        (OQ_QUEUE_0_ADDR_LO_REG + (i * 2)*queue_addr_offset), curr_addr);
+    writeReg(&nf_pktgen.nf2,
+        (OQ_QUEUE_0_ADDR_HI_REG + (i*2)*queue_addr_offset),
         curr_addr + XMIT_QUEUE_SIZE - 1);
-    writeReg(&nf_pktgen.nf2, 
+    writeReg(&nf_pktgen.nf2,
         (OQ_QUEUE_0_CTRL_REG + (i*2)*queue_addr_offset), 0x02);
     curr_addr += XMIT_QUEUE_SIZE;
 
@@ -834,10 +790,10 @@ queue_reorganize() {
     printf("%08lx %08lx\n", (OQ_QUEUE_0_ADDR_LO_REG + (i*2+1)*queue_addr_offset), curr_addr);
     printf("%08lx %08lx\n", (OQ_QUEUE_0_ADDR_HI_REG + (i*2+1)*queue_addr_offset), curr_addr + rx_queue_size[i] - 1);
     printf("%08lx %08lx\n", (OQ_QUEUE_0_CTRL_REG + (i*2 + 1) * queue_addr_offset), 0x02);
-#endif 
-    writeReg(&nf_pktgen.nf2, 
+#endif
+    writeReg(&nf_pktgen.nf2,
         (OQ_QUEUE_0_ADDR_LO_REG + (i*2+1)*queue_addr_offset), curr_addr);
-    writeReg(&nf_pktgen.nf2, 
+    writeReg(&nf_pktgen.nf2,
         (OQ_QUEUE_0_ADDR_HI_REG + (i*2+1)*queue_addr_offset), curr_addr + rx_queue_size[i] - 1);
     writeReg(&nf_pktgen.nf2,
         (OQ_QUEUE_0_CTRL_REG + (i*2 + 1) * queue_addr_offset), 0x02);
@@ -852,11 +808,11 @@ queue_reorganize() {
     printf("%08lx %08lx\n",(OQ_QUEUE_0_CTRL_REG + (i + 2*NUM_PORTS)*queue_addr_offset),0x02);
 #endif
     // Set queue sizes for TX queues
-    writeReg(&nf_pktgen.nf2, 
-        (OQ_QUEUE_0_ADDR_LO_REG + (i + 2*NUM_PORTS)*queue_addr_offset), 
+    writeReg(&nf_pktgen.nf2,
+        (OQ_QUEUE_0_ADDR_LO_REG + (i + 2*NUM_PORTS)*queue_addr_offset),
         curr_addr);
 
-    writeReg(&nf_pktgen.nf2,(OQ_QUEUE_0_ADDR_HI_REG+(i+2*NUM_PORTS)*queue_addr_offset), 
+    writeReg(&nf_pktgen.nf2,(OQ_QUEUE_0_ADDR_HI_REG+(i+2*NUM_PORTS)*queue_addr_offset),
         curr_addr + queue_size - 1);
 
     writeReg(&nf_pktgen.nf2,(OQ_QUEUE_0_CTRL_REG+(i+2*NUM_PORTS)*queue_addr_offset),0x02);
@@ -867,7 +823,7 @@ queue_reorganize() {
 
   // Enable Output Queues that are not associated with Packet Generation
   for (i = 0; i < 2*NUM_PORTS; i++) {
-    writeReg(&nf_pktgen.nf2, 
+    writeReg(&nf_pktgen.nf2,
         (OQ_QUEUE_0_CTRL_REG + i*queue_addr_offset), 0x01);
 #if DEBUG
     printf("%08lx %08lx\n",(OQ_QUEUE_0_CTRL_REG + i*queue_addr_offset), 0x01);
@@ -883,9 +839,9 @@ queue_reorganize() {
 // Arguments: queue             queue number (0-11)
 //////////////////////////////////////////////////
 void
-disable_queue(int queue) { 
-  writeReg(&nf_pktgen.nf2, 
-      OQ_QUEUE_0_CTRL_REG + queue * nf_pktgen.queue_addr_offset, 
+disable_queue(int queue) {
+  writeReg(&nf_pktgen.nf2,
+      OQ_QUEUE_0_CTRL_REG + queue * nf_pktgen.queue_addr_offset,
       0x0);
 }
 
@@ -893,7 +849,7 @@ disable_queue(int queue) {
 // Name: time
 // A simple action to get current second since epoch
 /////////////////////////////////////////////////////////
-uint32_t 
+uint32_t
 time() {
   struct timeval now;
   gettimeofday(&now, NULL);
@@ -903,20 +859,20 @@ time() {
 //////////////////////////////////////////////////////////////////
 // name: nf_start
 // A function to load data and put the generator to start capturing data.
-// 
+//
 /////////////////////////////////////////////////////////////////
 int
 nf_start(int  wait) {
   int i, queue;
   int rate_limit_offset = RATE_LIMIT_1_CTRL_REG - RATE_LIMIT_0_CTRL_REG;
 
-  for (i = 0; i < NUM_PORTS;i++) {    
+  for (i = 0; i < NUM_PORTS;i++) {
     int rate_limit_offset = RATE_LIMIT_1_CTRL_REG - RATE_LIMIT_0_CTRL_REG;
     int queue = 2*i;
     if( nf_pktgen.rate_enable[i]) {
-      writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_TOKEN_INTERVAL_REG + (queue * rate_limit_offset), 
+      writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_TOKEN_INTERVAL_REG + (queue * rate_limit_offset),
           nf_pktgen.clks_between_tokens[i]);
-      writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_TOKEN_INC_REG + (queue * rate_limit_offset), 
+      writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_TOKEN_INC_REG + (queue * rate_limit_offset),
           nf_pktgen.number_tokens[i]);
     }
 
@@ -943,27 +899,27 @@ nf_start(int  wait) {
   //Enable the packet generator hardware to send the packets
   int drop = 0;
   if (!nf_pktgen.nodrop) { // in case we are not capturing on some queue, don't drop packets
-    for (i = 0; i < NUM_PORTS; i++) 
+    for (i = 0; i < NUM_PORTS; i++)
       if (nf_pktgen.obj_cap[i].cap_fd == -1) {
         printf("disable receipt on port %d\n", i);
         drop |= (1 << i);
-      }    
+      }
     drop <<= 8;
   }
 
-  for (i = 0; i < NUM_PORTS;i++) {    
+  for (i = 0; i < NUM_PORTS;i++) {
     queue = 2*i;
     if(nf_pktgen.iterations[i]) {
       writeReg(&nf_pktgen.nf2, OQ_QUEUE_0_CTRL_REG+(i+2*NUM_PORTS)*nf_pktgen.queue_addr_offset,
-          0x1); 
-      writeReg(&nf_pktgen.nf2, OQ_QUEUE_0_MAX_ITER_REG+(i+2*NUM_PORTS)*nf_pktgen.queue_addr_offset, 
+          0x1);
+      writeReg(&nf_pktgen.nf2, OQ_QUEUE_0_MAX_ITER_REG+(i+2*NUM_PORTS)*nf_pktgen.queue_addr_offset,
           nf_pktgen.iterations[i] );
     }
     if( nf_pktgen.rate_enable[i]) {
       writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_CTRL_REG+(queue*rate_limit_offset), 0x1);
     } else {
       writeReg(&nf_pktgen.nf2, RATE_LIMIT_0_CTRL_REG+(queue*rate_limit_offset), 0x0);
-    } 
+    }
   }
 
 
@@ -978,14 +934,14 @@ nf_start(int  wait) {
   packet_generator_enable (drop | 0xF);
   nf_pktgen.gen_start = time();
 
-  if(wait) 
+  if(wait)
     nf_gen_wait_end();
 }
 
 //////////////////////////////////////////////////////////////////
 // name: nf_restart
 // A function to load data and put the generator to start capturing data.
-// 
+//
 /////////////////////////////////////////////////////////////////
 int
 nf_restart() {
@@ -996,19 +952,19 @@ nf_restart() {
   queue_reorganize();
 
   if (!nf_pktgen.nodrop) { // in case we are not capturing on some queue, don't drop packets
-    for (i = 0; i < NUM_PORTS; i++) 
+    for (i = 0; i < NUM_PORTS; i++)
       if (nf_pktgen.obj_cap[i].cap_fd == -1) {
         printf("disable receipt on port %d\n", i);
         drop |= (1 << i);
-      }    
+      }
     drop <<= 8;
   }
 
   for (i = 0; i < NUM_PORTS;i++) {
     if(nf_pktgen.iterations[i]) {
-      writeReg(&nf_pktgen.nf2, OQ_QUEUE_0_CTRL_REG+(i+2*NUM_PORTS)*nf_pktgen.queue_addr_offset, 
-          0x1); 
-      writeReg(&nf_pktgen.nf2, OQ_QUEUE_0_MAX_ITER_REG+(i+2*NUM_PORTS)*nf_pktgen.queue_addr_offset, 
+      writeReg(&nf_pktgen.nf2, OQ_QUEUE_0_CTRL_REG+(i+2*NUM_PORTS)*nf_pktgen.queue_addr_offset,
+          0x1);
+      writeReg(&nf_pktgen.nf2, OQ_QUEUE_0_MAX_ITER_REG+(i+2*NUM_PORTS)*nf_pktgen.queue_addr_offset,
           nf_pktgen.iterations[i] );
     }
   }
@@ -1039,7 +995,7 @@ nf_finish() {
 
 //////////////////////////////////////////////////////////////////
 // name: nf_gen_finished
-// The function after the l]ast packet has been send. 
+// The function after the l]ast packet has been send.
 //////////////////////////////////////////////////////////////////
 int
 nf_gen_wait_end() {
@@ -1047,13 +1003,13 @@ nf_gen_wait_end() {
   double last_pkt = 0, delta = 0;
   for (i = 0; i < NUM_PORTS; i++) {
     if (nf_pktgen.queue_data_len[i]) {
-      double queue_last = ((double)nf_pktgen.last_sec[i]) + 
+      double queue_last = ((double)nf_pktgen.last_sec[i]) +
         ((double)nf_pktgen.last_nsec[i] * pow(10,-9)) ; //+ pow(10,9);
       queue_last = queue_last *((double)nf_pktgen.iterations[i]);
-      queue_last += (nf_pktgen.final_pkt_delay[i] * pow(10, -9)) * 
+      queue_last += (nf_pktgen.final_pkt_delay[i] * pow(10, -9)) *
         (nf_pktgen.iterations[i] - 1.0);
-      // printf("queue %d last sec : %lu.%09lu, last: %f, iterations : %d, len : %d\n", 
-      //i, nf_pktgen.last_sec[i], nf_pktgen.last_nsec[i], 
+      // printf("queue %d last sec : %lu.%09lu, last: %f, iterations : %d, len : %d\n",
+      //i, nf_pktgen.last_sec[i], nf_pktgen.last_nsec[i],
       //queue_last, nf_pktgen.iterations[i], nf_pktgen.queue_data_len[i]);
       if (queue_last > last_pkt) {
         last_pkt = queue_last;
@@ -1067,7 +1023,7 @@ nf_gen_wait_end() {
     printf("\r%1.3f seconds elapsed...\n", delta);
     pthread_yield();
     delta = ((double)time()) - nf_pktgen.gen_start;
-  }  
+  }
 }
 
 //////////////////////////////////////////////////////////////////
@@ -1081,7 +1037,7 @@ nf_gen_finished() {
   float last_pkt = 0;
   for (i = 0; i < NUM_PORTS; i++) {
     if (nf_pktgen.queue_data_len[i]) {
-      double queue_last = (nf_pktgen.last_sec[i] * 1.0) + 
+      double queue_last = (nf_pktgen.last_sec[i] * 1.0) +
         (nf_pktgen.last_nsec[i] * pow(10,-9));
       queue_last *= (nf_pktgen.iterations[i] * 1.0);
       queue_last += (nf_pktgen.final_pkt_delay[i] * pow(10, -9)) * (nf_pktgen.iterations[i] - 1.0);
@@ -1168,7 +1124,7 @@ display_xmit_metrics(int queue, struct nf_gen_stats *stat) {
   /*   nf_regread(nf_pktgen.nf2,  */
   /* 	     OQ_QUEUE_0_CURR_ITER_REG+(i+8)*nf_pktgen.queue_addr_offset, */
   /* 	      &stat->pkt_cnt); */
-} 
+}
 
 
 
@@ -1187,13 +1143,13 @@ nf_cap_enable(char *dev_name, int caplen) {
   }
 
   //find dev ix
-  for(ix = 0 ; ix < NUM_PORTS; ix++) 
+  for(ix = 0 ; ix < NUM_PORTS; ix++)
     if(strcmp(nf_pktgen.obj_cap[ix].name, dev_name) == 0) break;
 
   if(ix == NUM_PORTS) {
     printf("Invalid device name\n");
     return NULL;
-  } else 
+  } else
     cap = &nf_pktgen.obj_cap[ix];
 
   cap->pcap_handle = pcap_open_live(dev_name, caplen,
@@ -1213,7 +1169,7 @@ nf_cap_enable(char *dev_name, int caplen) {
 
   //allocate memory for the packet
   cap->caplen = caplen;
-  cap->packet_cache = (uint8_t *)xmalloc(caplen);
+  cap->packet_cache = (uint8_t *)malloc(caplen);
   if(!cap->packet_cache) {
     return NULL;
   }
@@ -1223,10 +1179,10 @@ nf_cap_enable(char *dev_name, int caplen) {
 
 //////////////////////////////////////////////
 // name: nf_cap_fileno
-// Rertrieve a selectable filedescriptor 
+// Rertrieve a selectable filedescriptor
 // param: cap               the capturing object of the relecant field
 //////////////////////////////////////////////
-int  
+int
 nf_cap_fileno(struct nf_cap_t *cap) {
   if(cap) return cap->cap_fd;
   else return -1;
@@ -1236,13 +1192,13 @@ nf_cap_fileno(struct nf_cap_t *cap) {
  * The return pointer, point a memory location within the packet
  */
 struct pktgen_hdr *
-nf_gen_extract_header(struct nf_cap_t *cap, uint8_t *b, int len) {
+nf_gen_extract_header(struct nf_cap_t *cap, const uint8_t *b, int len) {
   struct pktgen_hdr *ret;
   uint64_t time_count;
   lldiv_t res;
 
-  // sanity check 
-  if( (b == NULL) || (len < 80)) 
+  // sanity check
+  if( (b == NULL) || (len < 80))
     return NULL;
 
   //constant distacne
@@ -1251,26 +1207,26 @@ nf_gen_extract_header(struct nf_cap_t *cap, uint8_t *b, int len) {
   if((0xFFFFFF & ntohl(ret->magic)) != 0x9be955) { //simetimes the 1st byte is messed up
     //if the vlan tag is stripped move the translation by 4 bytes.
     //printf("Packet gen packet received %x\n",ntohl(ret->magic));
-    ret = (struct pktgen_hdr *)((uint8_t *)b + 60); 
+    ret = (struct pktgen_hdr *)((uint8_t *)b + 60);
     if((0xFFFFFF & ntohl(ret->magic)) != 0x9be955) {
-      ret = (struct pktgen_hdr *)((uint8_t *)b + 68); 
+      ret = (struct pktgen_hdr *)((uint8_t *)b + 68);
       if((0xFFFFFF & ntohl(ret->magic)) != 0x9be955) {
         return NULL;
       }
     }
   }
 
-  time_count =  (((uint64_t)ntohl(ret->tv_sec)) << 32) |  
-    ((0xFFFFFFFF) & ((uint64_t)ntohl(ret->tv_usec))); 
+  time_count =  (((uint64_t)ntohl(ret->tv_sec)) << 32) |
+    ((0xFFFFFFFF) & ((uint64_t)ntohl(ret->tv_usec)));
   time_count = time_count*CORRECTION;
 
   //printf("rcv %d %llu %llx\n",  ntohl(ret->seq_num), time_count, time_count);
-  //  printf("packet time %lx %lx %llx\n", ntohl(ret->tv_sec), 
-  // ntohl(ret->tv_usec), time_count); 
+  //  printf("packet time %lx %lx %llx\n", ntohl(ret->tv_sec),
+  // ntohl(ret->tv_usec), time_count);
 
   //minor hack in case I am comparing against timestamp not made by the hw design
   res = lldiv(time_count, powl(10,9));
-  if((uint32_t)res.quot < (1<<26)) { 
+  if((uint32_t)res.quot < (1<<26)) {
     ret->tv_sec = nf_pktgen.start.tv_sec + (uint32_t)res.quot;
     ret->tv_usec =  nf_pktgen.start.tv_usec + ((uint32_t)(res.rem/1000));
   } else {
@@ -1324,37 +1280,12 @@ nf_cap_next(struct nf_cap_t *cap, struct pcap_pkthdr *h) {
     res = lldiv(time_count, powl(10,9));
   }
 
-  /*   if((cap->start.tv_sec == 0) && (res.quot <  powl(10,6))) {    */
-  /*     cap->start.tv_sec = h->ts.tv_sec - res.quot; */
-  /*     if(h->ts.tv_usec < (uint32_t)(res.rem/1000)) { */
-  /*       cap->start.tv_usec = (1000000 + h->ts.tv_usec) - (uint32_t)(res.rem/1000); */
-  /*       cap->start.tv_sec--; */
-  /*     } else { */
-  /*       cap->start.tv_usec = h->ts.tv_usec - (uint32_t)(res.rem/1000); */
-  /*     } */
-  /*   } else if(cap->start.tv_sec > 0) { */
   h->ts.tv_sec = nf_pktgen.start.tv_sec + (uint32_t)res.quot;
   h->ts.tv_usec = nf_pktgen.start.tv_usec + ((uint32_t)(res.rem/1000));
   if(h->ts.tv_usec >= 1000000) {
     h->ts.tv_usec -= 1000000;
     h->ts.tv_sec++;
   }
-  /*   } */
-
-  if(test_output) {
-    int32_t diff;
-    diff =  ((int32_t)h->ts.tv_sec - (int32_t)old_header.ts.tv_sec)*1000000 +
-      (int32_t)h->ts.tv_usec - (int32_t)old_header.ts.tv_usec;
-
-    fprintf(test_output, "%lu.%06lu %lu.%06lu %lld %llu %lu.%06lu %llu.%09llu\n",
-        old_header.ts.tv_sec,old_header.ts.tv_usec, 
-        h->ts.tv_sec, h->ts.tv_usec, diff,
-        time_count, nf_pktgen.start.tv_sec, nf_pktgen.start.tv_usec,
-        res.quot, res.rem);
-  }
-
-  //return data
-  //  printf("%d %d %d", cap->caplen, len - 24, , );
   memcpy(cap->packet_cache, pcap_data + 24, len);
 
   return cap->packet_cache;

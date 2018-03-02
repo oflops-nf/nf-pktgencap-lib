@@ -16,27 +16,29 @@
 #include <string.h>
 
 uint8_t * parseip(char *str) {
-        uint8_t *ret = (uint8_t *)malloc(4 * sizeof(uint8_t));
-        char *num = (char *)strtok(str, ".");
-	int index = 0;
-        while (num != NULL) {
-                ret[index++] = atoi(num);
-                num = (char *)strtok(NULL, ".");
-        }
-        return ret;
+    char* dup = strdup(str);
+    uint8_t *ret = (uint8_t *)malloc(4 * sizeof(uint8_t));
+    char *num = (char *)strtok(dup, ".");
+    int index = 0;
+    while (num != NULL) {
+        ret[index++] = atoi(num);
+        num = (char *)strtok(NULL, ".");
+    }
+    return ret;
 }
 
 uint8_t * parsemac(char *str) {
-        uint8_t *ret = (uint8_t *)malloc(6 * sizeof(char));
-        char *num = (char *)strtok(str, ":");
-	int index = 0;
-        while (num != NULL) {
-		int i;
-		sscanf(num, "%x", &i);
-		ret[index++] = i;
-                num = (char *)strtok(NULL, ":");
-        }
-        return ret;
+    char* dup = strdup(str);
+    uint8_t *ret = (uint8_t *)malloc(6 * sizeof(char));
+    char *num = (char *)strtok(dup, ":");
+    int index = 0;
+    while (num != NULL) {
+        int i;
+        sscanf(num, "%x", &i);
+        ret[index++] = i;
+        num = (char *)strtok(NULL, ":");
+    }
+    return ret;
 }
 
 uint16_t cksm(int length, uint32_t buf[]) {
@@ -61,17 +63,4 @@ uint16_t cksm(int length, uint32_t buf[]) {
 	sum = ~sum;
 
 	return ((uint16_t)sum);
-}
-
-void *xmalloc(size_t size) {
-  void *ret;
-
-  ret = malloc(size);
-
-  if(ret == NULL) {
-    perror("malloc");
-    exit(1);
-  }
-  
-  return ret;
 }

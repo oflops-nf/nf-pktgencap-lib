@@ -8,6 +8,7 @@
  * Change history:
  *
  */
+#include<time.h>
 
 #ifndef _UTIL_H
 #define _UTIL_H	1
@@ -17,5 +18,4 @@
 uint8_t *parseip(char *str);
 uint8_t *parsemac(char *str);
 uint16_t cksm(uint16_t length, uint32_t buf[]);
-
 #endif

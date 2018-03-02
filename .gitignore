@@ -1,9 +1,37 @@
+<<<<<<< HEAD
+*/*.lo
+*.la
+*.a
+*.so
+*.o
+config.h
+config.h.in
+config.h.in~
+aclocal.m4
+config.log
+config.guess
+config.sub
+ar-lib
+ltmain.sh
+.deps
+.libs
+*.log
+
+Makefile
+Makefile.in
+configure
+# Created by http://www.gitignore.io
+
+### C ###
 # Object files
 *.o
 *.ko
 *.obj
 *.elf
 
+# Libraries
+*.lib
+*.a
 # Precompiled Headers
 *.gch
 *.pch
@@ -13,7 +41,6 @@
 *.a
 *.la
 *.lo
-
 # Shared objects (inc. Windows DLLs)
 *.dll
 *.so
@@ -27,3 +54,50 @@
 *.i*86
 *.x86_64
 *.hex
+
+# Created by http://www.gitignore.io
+
+### vim ###
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+*~
+
+# Created by http://www.gitignore.io
+
+### Autotools ###
+# http://www.gnu.org/software/automake
+
+Makefile.in
+
+# http://www.gnu.org/software/autoconf
+
+/autom4te.cache
+/aclocal.m4
+*.m4
+/compile
+/configure
+/depcomp
+/install-sh
+/missing
+/stamp-h1
+
+libtool
+config.status
+
+/Doxyfile
+doxyfile.stamp
+doc/Doxyfile
+doc/html
+doc/latex
+
+examples/pkt_gen
+examples/pkt_cap
+examples/blueswitch_test
+examples/timestamp
+
+# pcap files. Useless in the repo
+*.pcap
+*.cap
