@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 */*.lo
 *.la
 *.a
@@ -89,6 +88,7 @@ config.status
 
 /Doxyfile
 doxyfile.stamp
+!doc/Makefile
 doc/Doxyfile
 doc/html
 doc/latex
